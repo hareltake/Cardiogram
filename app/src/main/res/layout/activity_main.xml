@@ -17,18 +17,6 @@
             android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:layout_gravity="bottom|start" android:layout_margin="@dimen/fab_margin"
             android:src="@android:drawable/ic_menu_camera" />
-        <android.support.design.widget.FloatingActionButton android:id="@+id/fab_play"
-            android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:layout_gravity="bottom|start" android:layout_margin="@dimen/fab_margin"
-            android:src="@android:drawable/ic_media_play" />
-        <android.support.design.widget.FloatingActionButton android:id="@+id/fab_save"
-            android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:layout_gravity="bottom|start" android:layout_margin="@dimen/fab_margin"
-            android:src="@android:drawable/ic_menu_save" />
-        <ProgressBar
-            android:id="@+id/progress"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
     </LinearLayout>
 
 </android.support.design.widget.CoordinatorLayout>
