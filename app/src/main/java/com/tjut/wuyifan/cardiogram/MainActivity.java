@@ -19,8 +19,10 @@ import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 
 import com.opencsv.CSVWriter;
+import com.tjut.wuyifan.cardiogram.utils.Utility;
 
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.LoaderCallbackInterface;
@@ -44,7 +46,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CUT_PHONTO = 2;
     private static final String TAG = "Cardiogram";
     private static final String CSV = "/storage/emulated/0/Pictures/pixel.csv";
-    private static final String IMAG = "/storage/emulated/0/Pictures/JPEG_20151023_155759_-832276725.jpg";
+    private static final String IMAG = "/storage/emulated/0/Pictures/JPEG_20151028_125903_-188392486.jpg";
     //黑白框边界的单位长度
     private static final int BORDER = 30;
     //用来显示图片
@@ -54,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
     private FloatingActionButton mFabSave = null;
     private FloatingActionButton mFabPlay = null;
     private ProgressBar mProgressBar = null;
+    private TextView textView = null;
 
     private Handler mHandler = null;
 
@@ -61,6 +64,8 @@ public class MainActivity extends AppCompatActivity {
     //存储已拍照片或已剪裁照片的路径
     private String mCurrentPhotoPath = null;
 
+    //存储最后生成的坐标
+    ArrayList<Point> generatedPoints = null;
     private double mUpBJ;
     private double mUpRadian;
     private double mDownBJ;
@@ -123,7 +128,12 @@ public class MainActivity extends AppCompatActivity {
                 new LoadImageFromFileTask().execute(IMAG);
             }
         });
-        mProgressBar = ((ProgressBar)findViewById(2131492970));
+
+        mProgressBar = ((ProgressBar)findViewById(R.id.progress));
+
+        textView = (TextView) findViewById(R.id.textView);
+
+        generatedPoints = new ArrayList<Point>();
     }
 
     @Override
@@ -249,19 +259,31 @@ public class MainActivity extends AppCompatActivity {
     private class ExtractTask extends AsyncTask<Bitmap, Integer, Bitmap>
     {
         protected Bitmap doInBackground(Bitmap[] bitmaps) {
-            FileWriter fileWriter = null;
-            try {
-                fileWriter = new FileWriter(CSV);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            CSVWriter cw = new CSVWriter(fileWriter);
-
             Bitmap bitmap = bitmaps[0];
-            afterDownBJToolStrip(bitmap);
-            afterUpBJToolStrip(bitmap);
-            Bitmap grayBitmap = huiduToolStrip(bitmap);
+            publishProgress(-1, 0);
+            downBJToolStrip(bitmap);
+            publishProgress(-1, 1);
+            upBJToolStrip(bitmap);
+            publishProgress(-1, 2);
+            Bitmap rotateBitmap = rotateToolStrip(bitmap);
+            publishProgress(-1, 3);
+            afterDownBJToolStrip(rotateBitmap);
+            publishProgress(-1, 4);
+            afterUpBJToolStrip(rotateBitmap);
+            publishProgress(-1, 5);
+            final Bitmap grayBitmap = huiduToolStrip(rotateBitmap);
+            publishProgress(-1, 6);
             selfToolStrip(grayBitmap);
+            mHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    mImageView.setImageBitmap(grayBitmap);
+                }
+            });
+            publishProgress(-1, 7);
+            generateCoordinates(grayBitmap);
+            publishProgress(-1, 8);
+            redrawToolStrip();
 
             return grayBitmap;
         }
@@ -276,7 +298,41 @@ public class MainActivity extends AppCompatActivity {
         }
 
         protected void onProgressUpdate(Integer[] integers) {
-            mProgressBar.setProgress(integers[0]);
+            if (integers[0] != -1) {
+                mProgressBar.setProgress(integers[0]);
+            } else {
+                switch (integers[1]) {
+                    case 0:
+                        textView.setText("获取下边界");
+                        break;
+                    case 1:
+                        textView.setText("获取上边界");
+                        break;
+                    case 2:
+                        textView.setText("旋转矫正");
+                        break;
+                    case 3:
+                        textView.setText("重新获取下边界");
+                        break;
+                    case 4:
+                        textView.setText("重新获取上边界");
+                        break;
+                    case 5:
+                        textView.setText("灰度化");
+                        break;
+                    case 6:
+                        textView.setText("二值化");
+                        break;
+                    case 7:
+                        textView.setText("存储坐标");
+                        break;
+                    case 8:
+                        textView.setText("重画心电图");
+                        break;
+                    default:
+                        break;
+                }
+            }
         }
 
         /**
@@ -297,19 +353,19 @@ public class MainActivity extends AppCompatActivity {
 
             int width = bitmap.getWidth();
 
-            for (int i = 0; i < width; i++)
+            for (int i = 2; i < width - 2; i++)
             {
-                a += afterDownPoints.get(i).x * afterDownPoints.get(i).x;
-                b += afterDownPoints.get(i).x;
-                c += afterDownPoints.get(i).x * afterDownPoints.get(i).y;
-                d += afterDownPoints.get(i).y;
+                a += afterDownPoints.get(i - 2).x * afterDownPoints.get(i - 2).x;
+                b += afterDownPoints.get(i - 2).x;
+                c += afterDownPoints.get(i - 2).x * afterDownPoints.get(i - 2).y;
+                d += afterDownPoints.get(i - 2).y;
             }
             double deltanihewantop = a * width - b * b;
             double slope = (c * width - b * d) / deltanihewantop;
             double offset = (a * d - c * b) / deltanihewantop;
             double radian = Math.atan(slope);
 
-            for (int i = 0; i < width; i++)
+            for (int i = 2; i < width - 2; i++)
             {
                 Point point = new Point(i, slope * i + offset);
                 nihePoints.add(point);
@@ -331,12 +387,12 @@ public class MainActivity extends AppCompatActivity {
 
             int width = bitmap.getWidth();
 
-            for (int i = 0; i < width; i++)
+            for (int i = 2; i < width - 2; i++)
             {
-                a += afterUpPoints.get(i).x * afterUpPoints.get(i).x;
-                b += afterUpPoints.get(i).x;
-                c += afterUpPoints.get(i).x * afterUpPoints.get(i).y;
-                d += afterUpPoints.get(i).y;
+                a += afterUpPoints.get(i - 2).x * afterUpPoints.get(i - 2).x;
+                b += afterUpPoints.get(i - 2).x;
+                c += afterUpPoints.get(i - 2).x * afterUpPoints.get(i - 2).y;
+                d += afterUpPoints.get(i - 2).y;
             }
 
             double deltanihewantop = a * width - b * b;
@@ -344,7 +400,7 @@ public class MainActivity extends AppCompatActivity {
             double offset = (a * d - c * b) / deltanihewantop;
             double radian = Math.atan(slope);
 
-            for (int i = 0; i < width; i++)
+            for (int i = 2; i < width - 2; i++)
             {
                 Point point = new Point(i, slope * i + offset);
                 nihePoints.add(point);
@@ -363,8 +419,8 @@ public class MainActivity extends AppCompatActivity {
             ArrayList<Point> downPoints = new ArrayList();
             double[] p1, p2, p3;
             double r1, r2, r3;
-            for (int i = 0; i < size.width; i++) {
-                for (int j = (int) size.height - 150 - 1; j > 1; j--) {
+            for (int i = 2; i < size.width - 2; i++) {
+                for (int j = (int) size.height - 150 - 1 - 3; j > 1; j--) {
                     p1 = rgbMat.get(j, i);
                     p2 = rgbMat.get(j - 1, i);
                     p3 = rgbMat.get(j - 2, i);
@@ -377,7 +433,7 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     }
                 }
-                publishProgress((int) (i / size.width * 40));
+                publishProgress((int) (i / size.width * 30));
             }
 
             int count = downPoints.size();
@@ -404,8 +460,8 @@ public class MainActivity extends AppCompatActivity {
             ArrayList<Point> upPoints = new ArrayList();
             double[] p1, p2, p3;
             double r1, r2, r3;
-            for (int i = 0; i < size.width; i++) {
-                for (int j = 150; j < size.height; j++) {
+            for (int i = 2; i < size.width - 2; i++) {
+                for (int j = 150 + 2; j < size.height - 2; j++) {
                     p1 = rgbMat.get(j, i);
                     p2 = rgbMat.get(j + 1, i);
                     p3 = rgbMat.get(j + 2, i);
@@ -418,7 +474,7 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     }
                 }
-                publishProgress((int) (40 + i / size.width * 40));
+                publishProgress((int) (30 + i / size.width * 30));
             }
 
             int count = upPoints.size();
@@ -448,17 +504,49 @@ public class MainActivity extends AppCompatActivity {
          */
         private Bitmap huiduToolStrip(Bitmap bitmap)
         {
+//            int color, color1, color2;
+//            int r0, r1, r2, r3, r4, r5, r6, r7, r8;
+//            for (int i = 1; i < bitmap.getWidth() - 3; i++) {
+//                for (int j = 1; j < bitmap.getHeight() - 3; j++) {
+//                    color = bitmap.getPixel(i, j);
+//                    r0 = Color.red(color);
+//                    color = bitmap.getPixel(i + 1, j);
+//                    r1 = Color.red(color);
+//                    color = bitmap.getPixel(i - 1, j);
+//                    r2 = Color.red(color);
+//                    color = bitmap.getPixel(i - 1, j + 1);
+//                    r3 = Color.red(color);
+//                    color = bitmap.getPixel(i - 1, j - 1);
+//                    r4 = Color.red(color);
+//                    color = bitmap.getPixel(i + 1, j - 1);
+//                    r5 = Color.red(color);
+//                    color = bitmap.getPixel(i + 1, j + 1);
+//                    r6 = Color.red(color);
+//                    color = bitmap.getPixel(i, j + 1);
+//                    r7 = Color.red(color);
+//                    color = bitmap.getPixel(i, j - 1);
+//                    r8 = Color.red(color);
+//
+//                    if ((r2 == 255) && (r3 == 255) && (r4 == 255) && (r5 == 255) && (r6 == 255) && (r7 == 255) && (r1 == 255)) {
+//                        bitmap.setPixel(i, j, Color.argb(0xff, 0xff, 0xff, 0xff));
+//                    } else {
+//                        bitmap.setPixel(i, j, Color.argb(0xff, r0, r0, r0));
+//                    }
+//                }
+//            }
             Mat rgbMat = new Mat();
             Mat grayMat = new Mat();
+            Mat binaryMat = new Mat();
             Utils.bitmapToMat(bitmap, rgbMat);
             Imgproc.cvtColor(rgbMat, grayMat, Imgproc.COLOR_RGB2GRAY);
+            Imgproc.adaptiveThreshold(grayMat, binaryMat, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY_INV, 5, 2);
 
             Bitmap grayBitmap = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.RGB_565);
             Utils.matToBitmap(grayMat, grayBitmap);
 
-            publishProgress(100);
+            publishProgress(65);
 
-            return grayBitmap;
+            return bitmap;
         }
 
         private Bitmap rotateToolStrip(Bitmap bitmap) {
@@ -476,16 +564,135 @@ public class MainActivity extends AppCompatActivity {
 
         private void selfToolStrip(Bitmap bitmap)
         {
-            for (int i = 0; i < bitmap.getWidth(); i++)
+            for (int i = 0; i < bitmap.getWidth() - 2; i++)
             {
-                for (int j = 0; j < 10 + mUpBJ; j++)
-                {
+                for (int j = 0; j < mUpBJ + 10; j++) {
                     bitmap.setPixel(i, j, Color.WHITE);
                 }
                 for (int j = (int) mDownBJ - 20; j < bitmap.getHeight(); j++) {
                     bitmap.setPixel(i, j, Color.WHITE);
                 }
             }
+
+            int threshValue = Utility.getThreshValue(bitmap);
+
+            publishProgress(75);
+
+            int first = 0, flag2 = 1;
+            int color = 0, red = 0;
+            int shaobing = 0, shaobingx = 0, shaobingy = 0;
+
+            for (int i = 1; i < bitmap.getWidth(); i++) {
+                if (flag2 == 0) break;
+                for (int j = (int) mDownBJ - 20; j > (int) mUpBJ + 10; j--) {
+                    color = bitmap.getPixel(i, j);
+                    red = Color.red(color);
+
+                    if (red < threshValue + 10) {
+                        shaobingx = i;
+                        shaobingy = j;
+                        bitmap.setPixel(i, j, Color.BLACK);
+                        flag2 = 0;
+                        break;
+                    } else {
+                        bitmap.setPixel(i, j, Color.WHITE);
+                    }
+                }
+            }
+
+            publishProgress(80);
+
+            int flag3 = 0;
+            int miny = 2000;
+            int realy = 0;
+            int t = 0;
+            for (int i = shaobingx + 1; i < bitmap.getWidth(); i++) {
+                flag3 = 0;
+                miny = 2000;
+                realy = 0;
+
+                for (int j = (int) mUpBJ + 10; j < (int) mDownBJ - 20; j++) {
+                    color = bitmap.getPixel(i, j);
+                    red = Color.red(color);
+
+                    if (red < threshValue + 10) {
+                        t = Math.abs(j - shaobingy);
+                        if (t < miny & t != 0) {
+                            miny = t;
+                            realy = j;
+                            flag3 = 1;
+                        }
+                        bitmap.setPixel(i, j, Color.WHITE);
+                    } else {
+                        bitmap.setPixel(i ,j, Color.WHITE);
+                    }
+                }
+
+                if (flag3 == 1) {
+                    bitmap.setPixel(i, realy, Color.BLACK);
+                    shaobingy = realy;
+                    shaobing = realy;
+                } else {
+                    shaobing = 0;
+                }
+                for (int j = shaobing + 1; j < mDownBJ - 20; j++) {
+                    bitmap.setPixel(i, j, Color.WHITE);
+                }
+            }
+
+            publishProgress(85);
+        }
+
+        private void generateCoordinates(Bitmap bitmap) {
+            int oldy = 2;
+            int flag = 1;
+            int color = 0;
+            int red = 0;
+            int targetLength = 0;
+
+            for (int i = 2; i < bitmap.getWidth() - 2; i++) {
+                for (int j = 2; j < bitmap.getHeight() - 2; j++) {
+                    color = bitmap.getPixel(i, j);
+                    red = Color.red(color);
+                    if (red == 0) {
+                        Point point = new Point(i, j - (int) mUpBJ);
+                        generatedPoints.add(point);
+                        targetLength = i;
+                        break;
+                    }
+                }
+            }
+
+            publishProgress(90);
+
+            int count = generatedPoints.size();
+            double time = count * 0.0035;
+            //将坐标写入csv文件
+            try {
+                FileWriter fileWriter = new FileWriter(CSV);
+                CSVWriter cw = new CSVWriter(fileWriter);
+                ArrayList<String[]> coordinates = new ArrayList<String[]>();
+                double height = mDownBJ - mUpBJ;
+                String[] coordinate = new String[2];
+                for (int i = 0; i < count; i++) {
+                    String x = String.valueOf(generatedPoints.get(i).x);
+                    String y = String.valueOf(height - generatedPoints.get(i).y);
+//                String[] coordinate = new String[]{x, y};
+//                coordinates.add(coordinate);
+                    coordinate[0] = x;
+                    coordinate[1] = y;
+                    cw.writeNext(coordinate);
+                }
+                cw.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            publishProgress(100);
+        }
+
+        private void redrawToolStrip() {
+            
         }
     }
 }
