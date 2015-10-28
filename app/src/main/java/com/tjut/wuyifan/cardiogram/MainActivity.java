@@ -46,7 +46,8 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CUT_PHONTO = 2;
     private static final String TAG = "Cardiogram";
     private static final String CSV = "/storage/emulated/0/Pictures/pixel.csv";
-    private static final String IMAG = "/storage/emulated/0/Pictures/JPEG_20151028_125903_-188392486.jpg";
+    private static final String IMAG1 = "/storage/emulated/0/Pictures/JPEG_20151028_125903_-188392486.jpg";
+    private static final String IMAG2 = "/storage/emulated/0/Pictures/JPEG_20151028_164021_-188392486.jpg";
     //黑白框边界的单位长度
     private static final int BORDER = 30;
     //用来显示图片
@@ -64,8 +65,6 @@ public class MainActivity extends AppCompatActivity {
     //存储已拍照片或已剪裁照片的路径
     private String mCurrentPhotoPath = null;
 
-    //存储最后生成的坐标
-    ArrayList<Point> generatedPoints = null;
     private double mUpBJ;
     private double mUpRadian;
     private double mDownBJ;
@@ -125,15 +124,13 @@ public class MainActivity extends AppCompatActivity {
         this.mFabSave.setOnClickListener(new View.OnClickListener() {
             public void onClick(View paramView)
             {
-                new LoadImageFromFileTask().execute(IMAG);
+                new LoadImageFromFileTask().execute(IMAG2);
             }
         });
 
         mProgressBar = ((ProgressBar)findViewById(R.id.progress));
 
         textView = (TextView) findViewById(R.id.textView);
-
-        generatedPoints = new ArrayList<Point>();
     }
 
     @Override
@@ -258,20 +255,23 @@ public class MainActivity extends AppCompatActivity {
 
     private class ExtractTask extends AsyncTask<Bitmap, Integer, Bitmap>
     {
+        //存储最后生成的坐标
+        ArrayList<Point> generatedPoints = new ArrayList<Point>();
+
         protected Bitmap doInBackground(Bitmap[] bitmaps) {
             Bitmap bitmap = bitmaps[0];
-            publishProgress(-1, 0);
-            downBJToolStrip(bitmap);
-            publishProgress(-1, 1);
-            upBJToolStrip(bitmap);
-            publishProgress(-1, 2);
-            Bitmap rotateBitmap = rotateToolStrip(bitmap);
+//            publishProgress(-1, 0);
+//            downBJToolStrip(bitmap);
+//            publishProgress(-1, 1);
+//            upBJToolStrip(bitmap);
+//            publishProgress(-1, 2);
+//            Bitmap rotateBitmap = rotateToolStrip(bitmap);
             publishProgress(-1, 3);
-            afterDownBJToolStrip(rotateBitmap);
+            afterDownBJToolStrip(bitmap);
             publishProgress(-1, 4);
-            afterUpBJToolStrip(rotateBitmap);
+            afterUpBJToolStrip(bitmap);
             publishProgress(-1, 5);
-            final Bitmap grayBitmap = huiduToolStrip(rotateBitmap);
+            final Bitmap grayBitmap = huiduToolStrip(bitmap);
             publishProgress(-1, 6);
             selfToolStrip(grayBitmap);
             mHandler.post(new Runnable() {
@@ -283,9 +283,9 @@ public class MainActivity extends AppCompatActivity {
             publishProgress(-1, 7);
             generateCoordinates(grayBitmap);
             publishProgress(-1, 8);
-            redrawToolStrip();
+            Bitmap redrawBitmap = redrawToolStrip(bitmap.getWidth(), bitmap.getHeight());
 
-            return grayBitmap;
+            return redrawBitmap;
         }
 
         protected void onPostExecute(Bitmap bitmap) {
@@ -312,10 +312,10 @@ public class MainActivity extends AppCompatActivity {
                         textView.setText("旋转矫正");
                         break;
                     case 3:
-                        textView.setText("重新获取下边界");
+                        textView.setText("获取下边界");
                         break;
                     case 4:
-                        textView.setText("重新获取上边界");
+                        textView.setText("获取上边界");
                         break;
                     case 5:
                         textView.setText("灰度化");
@@ -346,30 +346,30 @@ public class MainActivity extends AppCompatActivity {
             mDownBJ = afterDownPoints.get(50).y;
             Log.d(TAG, "mDownBJ: " + mDownBJ);
 
-            double a = 0;
-            double b = 0;
-            double c = 0;
-            double d = 0;
-
-            int width = bitmap.getWidth();
-
-            for (int i = 2; i < width - 2; i++)
-            {
-                a += afterDownPoints.get(i - 2).x * afterDownPoints.get(i - 2).x;
-                b += afterDownPoints.get(i - 2).x;
-                c += afterDownPoints.get(i - 2).x * afterDownPoints.get(i - 2).y;
-                d += afterDownPoints.get(i - 2).y;
-            }
-            double deltanihewantop = a * width - b * b;
-            double slope = (c * width - b * d) / deltanihewantop;
-            double offset = (a * d - c * b) / deltanihewantop;
-            double radian = Math.atan(slope);
-
-            for (int i = 2; i < width - 2; i++)
-            {
-                Point point = new Point(i, slope * i + offset);
-                nihePoints.add(point);
-            }
+//            double a = 0;
+//            double b = 0;
+//            double c = 0;
+//            double d = 0;
+//
+//            int width = bitmap.getWidth();
+//
+//            for (int i = 2; i < width - 2; i++)
+//            {
+//                a += afterDownPoints.get(i - 2).x * afterDownPoints.get(i - 2).x;
+//                b += afterDownPoints.get(i - 2).x;
+//                c += afterDownPoints.get(i - 2).x * afterDownPoints.get(i - 2).y;
+//                d += afterDownPoints.get(i - 2).y;
+//            }
+//            double deltanihewantop = a * width - b * b;
+//            double slope = (c * width - b * d) / deltanihewantop;
+//            double offset = (a * d - c * b) / deltanihewantop;
+//            double radian = Math.atan(slope);
+//
+//            for (int i = 2; i < width - 2; i++)
+//            {
+//                Point point = new Point(i, slope * i + offset);
+//                nihePoints.add(point);
+//            }
         }
 
         /**
@@ -380,31 +380,31 @@ public class MainActivity extends AppCompatActivity {
             ArrayList<Point> afterUpPoints = upBJToolStrip(bitmap);
             ArrayList<Point> nihePoints = new ArrayList<Point>();
 
-            double a = 0;
-            double b = 0;
-            double c = 0;
-            double d = 0;
-
-            int width = bitmap.getWidth();
-
-            for (int i = 2; i < width - 2; i++)
-            {
-                a += afterUpPoints.get(i - 2).x * afterUpPoints.get(i - 2).x;
-                b += afterUpPoints.get(i - 2).x;
-                c += afterUpPoints.get(i - 2).x * afterUpPoints.get(i - 2).y;
-                d += afterUpPoints.get(i - 2).y;
-            }
-
-            double deltanihewantop = a * width - b * b;
-            double slope = (c * width - b * d) / deltanihewantop;
-            double offset = (a * d - c * b) / deltanihewantop;
-            double radian = Math.atan(slope);
-
-            for (int i = 2; i < width - 2; i++)
-            {
-                Point point = new Point(i, slope * i + offset);
-                nihePoints.add(point);
-            }
+//            double a = 0;
+//            double b = 0;
+//            double c = 0;
+//            double d = 0;
+//
+//            int width = bitmap.getWidth();
+//
+//            for (int i = 2; i < width - 2; i++)
+//            {
+//                a += afterUpPoints.get(i - 2).x * afterUpPoints.get(i - 2).x;
+//                b += afterUpPoints.get(i - 2).x;
+//                c += afterUpPoints.get(i - 2).x * afterUpPoints.get(i - 2).y;
+//                d += afterUpPoints.get(i - 2).y;
+//            }
+//
+//            double deltanihewantop = a * width - b * b;
+//            double slope = (c * width - b * d) / deltanihewantop;
+//            double offset = (a * d - c * b) / deltanihewantop;
+//            double radian = Math.atan(slope);
+//
+//            for (int i = 2; i < width - 2; i++)
+//            {
+//                Point point = new Point(i, slope * i + offset);
+//                nihePoints.add(point);
+//            }
         }
 
         /**
@@ -688,11 +688,56 @@ public class MainActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
 
-            publishProgress(100);
+            publishProgress(95);
         }
 
-        private void redrawToolStrip() {
-            
+        private Bitmap redrawToolStrip(int width, int height) {
+            Bitmap redrawBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
+
+            Canvas canvas = new Canvas(redrawBitmap);
+            Paint paint0 = new Paint();
+            paint0.setColor(Color.BLACK);
+            paint0.setStrokeWidth(2);
+            paint0.setStyle(Paint.Style.STROKE);
+            Paint paint1 = new Paint();
+            paint1.setColor(0xFFD269E1);
+            paint1.setStrokeWidth(1);
+            paint1.setStyle(Paint.Style.STROKE);
+            Paint paint2 = new Paint();
+            paint2.setColor(0xFFD269E1);
+            paint2.setStrokeWidth(2);
+            paint2.setStyle(Paint.Style.STROKE);
+            canvas.drawColor(0xFFF5F5DC);
+
+            int index = 0;
+            //画网格
+            for (float i = 30; i < width - 30; i += 12, index++) {
+                if (index % 5 == 0) {
+                    canvas.drawLine(i, 30, i, height - 30, paint2);
+                } else {
+                    canvas.drawLine(i, 30, i, height - 30, paint1);
+                }
+            }
+            index = 0;
+            for (int j = 30; j <= height - 30; j += 12, index++) {
+                if (index % 5 == 0) {
+                    canvas.drawLine(30, j, width - 30, j, paint2);
+                } else {
+                    canvas.drawLine(30, j, width - 30, j, paint1);
+                }
+            }
+
+            for (int i = 0; i < generatedPoints.size() - 1; i++) {
+                float x1 = (float) generatedPoints.get(i).x;
+                float y1 = (float) generatedPoints.get(i).y + 40;
+                float x2 = (float) generatedPoints.get(i + 1).x;
+                float y2 = (float) generatedPoints.get(i + 1).y + 40;
+                canvas.drawLine(x1, y1, x2, y2, paint0);
+            }
+
+            publishProgress(100);
+
+            return redrawBitmap;
         }
     }
 }
