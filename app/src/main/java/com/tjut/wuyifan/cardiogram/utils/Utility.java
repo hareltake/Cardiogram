@@ -10,6 +10,11 @@ import java.util.ArrayList;
  * Created by guogaoyang on 2015/10/26.
  */
 public class Utility {
+    /**
+     * 求图像的阈值，认真看能看懂在干什么，但不清楚为什么这样干
+     * @param bitmap
+     * @return
+     */
     public static int getThreshValue(Bitmap bitmap) {
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();

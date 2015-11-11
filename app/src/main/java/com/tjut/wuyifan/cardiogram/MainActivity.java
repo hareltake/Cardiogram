@@ -260,6 +260,11 @@ public class MainActivity extends AppCompatActivity {
 
         protected Bitmap doInBackground(Bitmap[] bitmaps) {
             Bitmap bitmap = bitmaps[0];
+            /**
+             * 以下每个方法即是一次求取，因为它的旋转矫正的算法并不能矫正，所以这里我把
+             * 矫正前的那几个方法删了，你如果非要加就把注释去掉，publishProgress这个方
+             * 法只是用来显示进度和当前状态，不用太在意。
+             */
 //            publishProgress(-1, 0);
 //            downBJToolStrip(bitmap);
 //            publishProgress(-1, 1);
@@ -267,13 +272,18 @@ public class MainActivity extends AppCompatActivity {
 //            publishProgress(-1, 2);
 //            Bitmap rotateBitmap = rotateToolStrip(bitmap);
             publishProgress(-1, 3);
+            //重新获取下边界，因为上边注释了，所以实则是第一次求下边界
             afterDownBJToolStrip(bitmap);
             publishProgress(-1, 4);
+            //重新获取上边界，同理
             afterUpBJToolStrip(bitmap);
             publishProgress(-1, 5);
+            //灰度化图片
             final Bitmap grayBitmap = huiduToolStrip(bitmap);
             publishProgress(-1, 6);
+            //二值化图片
             selfToolStrip(grayBitmap);
+            //显示二值化图片
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
@@ -281,8 +291,10 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
             publishProgress(-1, 7);
+            //生成坐标
             generateCoordinates(grayBitmap);
             publishProgress(-1, 8);
+            //依据生成的坐标重画心电图
             Bitmap redrawBitmap = redrawToolStrip(bitmap.getWidth(), bitmap.getHeight());
 
             return redrawBitmap;
@@ -336,16 +348,21 @@ public class MainActivity extends AppCompatActivity {
         }
 
         /**
-         * 重新获取下边界
+         * 重新获取下边界，所谓重新获取下边界，即是获取旋转矫正后图片的下边界，因为
+         * 它的旋转矫正的算法并不能矫正，所以我上边把那部分注释了，上边有提到
          * @param bitmap
          */
         private void afterDownBJToolStrip(Bitmap bitmap) {
+            //因为源代码在这里和第一次求下边界代码一模一样，所以可以直接复用
             ArrayList<Point> afterDownPoints = downBJToolStrip(bitmap);
             ArrayList<Point> nihePoints = new ArrayList<Point>();
 
+            //下边界
             mDownBJ = afterDownPoints.get(50).y;
-            Log.d(TAG, "mDownBJ: " + mDownBJ);
 
+            /**
+             * 以下代码是从源代码翻译过来的，但是之后完全没用到，所以注释掉了
+             */
 //            double a = 0;
 //            double b = 0;
 //            double c = 0;
@@ -377,9 +394,13 @@ public class MainActivity extends AppCompatActivity {
          * @param bitmap
          */
         private void afterUpBJToolStrip(Bitmap bitmap) {
+            //同理可以直接复用
             ArrayList<Point> afterUpPoints = upBJToolStrip(bitmap);
             ArrayList<Point> nihePoints = new ArrayList<Point>();
 
+            /**
+             * 同样，以下代码也没用到
+             */
 //            double a = 0;
 //            double b = 0;
 //            double c = 0;
@@ -416,6 +437,7 @@ public class MainActivity extends AppCompatActivity {
             Mat rgbMat = new Mat();
             Utils.bitmapToMat(bitmap, rgbMat);
             Size size = rgbMat.size();
+            //存储下边界的点
             ArrayList<Point> downPoints = new ArrayList();
             double[] p1, p2, p3;
             double r1, r2, r3;
@@ -442,6 +464,7 @@ public class MainActivity extends AppCompatActivity {
             double x2 = downPoints.get(count - 1).x;
             double y2 = bitmap.getHeight() - downPoints.get(count - 1).y;
             double slope = (y2 - y1) / (x2 - x1);
+            //下边界的弧度
             mDownRadian = Math.atan(slope);
             Log.d(TAG, "radian: " + mDownRadian);
 
@@ -457,6 +480,7 @@ public class MainActivity extends AppCompatActivity {
             Mat rgbMat = new Mat();
             Utils.bitmapToMat(bitmap, rgbMat);
             Size size = rgbMat.size();
+            //存储上边界的点
             ArrayList<Point> upPoints = new ArrayList();
             double[] p1, p2, p3;
             double r1, r2, r3;
@@ -483,9 +507,11 @@ public class MainActivity extends AppCompatActivity {
             double x2 = upPoints.get(count - 1).x;
             double y2 = bitmap.getHeight() - upPoints.get(count - 1).y;
             double slope = (y2 - y1) / (x2 - x1);
+            //上边界的弧度
             mUpRadian = Math.atan(slope);
             Log.d("Cardiogram", "radian: " + mUpRadian);
 
+            //求上边界
             if (mUpRadian < 0) {
                 mUpBJ = upPoints.get(count - 1).y;
             } else {
@@ -504,51 +530,59 @@ public class MainActivity extends AppCompatActivity {
          */
         private Bitmap huiduToolStrip(Bitmap bitmap)
         {
-//            int color, color1, color2;
-//            int r0, r1, r2, r3, r4, r5, r6, r7, r8;
-//            for (int i = 1; i < bitmap.getWidth() - 3; i++) {
-//                for (int j = 1; j < bitmap.getHeight() - 3; j++) {
-//                    color = bitmap.getPixel(i, j);
-//                    r0 = Color.red(color);
-//                    color = bitmap.getPixel(i + 1, j);
-//                    r1 = Color.red(color);
-//                    color = bitmap.getPixel(i - 1, j);
-//                    r2 = Color.red(color);
-//                    color = bitmap.getPixel(i - 1, j + 1);
-//                    r3 = Color.red(color);
-//                    color = bitmap.getPixel(i - 1, j - 1);
-//                    r4 = Color.red(color);
-//                    color = bitmap.getPixel(i + 1, j - 1);
-//                    r5 = Color.red(color);
-//                    color = bitmap.getPixel(i + 1, j + 1);
-//                    r6 = Color.red(color);
-//                    color = bitmap.getPixel(i, j + 1);
-//                    r7 = Color.red(color);
-//                    color = bitmap.getPixel(i, j - 1);
-//                    r8 = Color.red(color);
-//
-//                    if ((r2 == 255) && (r3 == 255) && (r4 == 255) && (r5 == 255) && (r6 == 255) && (r7 == 255) && (r1 == 255)) {
-//                        bitmap.setPixel(i, j, Color.argb(0xff, 0xff, 0xff, 0xff));
-//                    } else {
-//                        bitmap.setPixel(i, j, Color.argb(0xff, r0, r0, r0));
-//                    }
-//                }
-//            }
-            Mat rgbMat = new Mat();
-            Mat grayMat = new Mat();
-            Mat binaryMat = new Mat();
-            Utils.bitmapToMat(bitmap, rgbMat);
-            Imgproc.cvtColor(rgbMat, grayMat, Imgproc.COLOR_RGB2GRAY);
-            Imgproc.adaptiveThreshold(grayMat, binaryMat, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY_INV, 5, 2);
+            /**
+             * 大体思路就是
+             */
+            int color, color1, color2;
+            int r0, r1, r2, r3, r4, r5, r6, r7, r8;
+            for (int i = 1; i < bitmap.getWidth() - 3; i++) {
+                for (int j = 1; j < bitmap.getHeight() - 3; j++) {
+                    color = bitmap.getPixel(i, j);
+                    r0 = Color.red(color);
+                    color = bitmap.getPixel(i + 1, j);
+                    r1 = Color.red(color);
+                    color = bitmap.getPixel(i - 1, j);
+                    r2 = Color.red(color);
+                    color = bitmap.getPixel(i - 1, j + 1);
+                    r3 = Color.red(color);
+                    color = bitmap.getPixel(i - 1, j - 1);
+                    r4 = Color.red(color);
+                    color = bitmap.getPixel(i + 1, j - 1);
+                    r5 = Color.red(color);
+                    color = bitmap.getPixel(i + 1, j + 1);
+                    r6 = Color.red(color);
+                    color = bitmap.getPixel(i, j + 1);
+                    r7 = Color.red(color);
+                    color = bitmap.getPixel(i, j - 1);
+                    r8 = Color.red(color);
 
-            Bitmap grayBitmap = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.RGB_565);
-            Utils.matToBitmap(grayMat, grayBitmap);
+                    if ((r2 == 255) && (r3 == 255) && (r4 == 255) && (r5 == 255) && (r6 == 255) && (r7 == 255) && (r1 == 255)) {
+                        bitmap.setPixel(i, j, Color.argb(0xff, 0xff, 0xff, 0xff));
+                    } else {
+                        bitmap.setPixel(i, j, Color.argb(0xff, r0, r0, r0));
+                    }
+                }
+            }
+//            Mat rgbMat = new Mat();
+//            Mat grayMat = new Mat();
+//            Mat binaryMat = new Mat();
+//            Utils.bitmapToMat(bitmap, rgbMat);
+//            Imgproc.cvtColor(rgbMat, grayMat, Imgproc.COLOR_RGB2GRAY);
+//            Imgproc.adaptiveThreshold(grayMat, binaryMat, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY_INV, 5, 2);
+//
+//            Bitmap grayBitmap = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.RGB_565);
+//            Utils.matToBitmap(grayMat, grayBitmap);
 
             publishProgress(65);
 
             return bitmap;
         }
 
+        /**
+         * 根据下边界弧度旋转矫正图片，并没有卵用
+         * @param bitmap
+         * @return
+         */
         private Bitmap rotateToolStrip(Bitmap bitmap) {
             Bitmap rotateBitmap = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), bitmap.getConfig());
             Matrix matrix = new Matrix();
@@ -562,6 +596,10 @@ public class MainActivity extends AppCompatActivity {
             return rotateBitmap;
         }
 
+        /**
+         * 二值化，这里的代码我大部分都看不懂，你凑合着看吧
+         * @param bitmap
+         */
         private void selfToolStrip(Bitmap bitmap)
         {
             for (int i = 0; i < bitmap.getWidth() - 2; i++)
@@ -574,6 +612,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
+            //但是我知道这个很重要，求一个用来划分黑和白的阈值（即分界点）
             int threshValue = Utility.getThreshValue(bitmap);
 
             publishProgress(75);
@@ -654,8 +693,10 @@ public class MainActivity extends AppCompatActivity {
                 for (int j = 2; j < bitmap.getHeight() - 2; j++) {
                     color = bitmap.getPixel(i, j);
                     red = Color.red(color);
+                    //这里算法的意思是red等于0的点就是心电图上的点，因为二值化后心电图是黑的
                     if (red == 0) {
                         Point point = new Point(i, j - (int) mUpBJ);
+                        //将左边存入数组generatedPoints
                         generatedPoints.add(point);
                         targetLength = i;
                         break;
@@ -672,13 +713,12 @@ public class MainActivity extends AppCompatActivity {
                 FileWriter fileWriter = new FileWriter(CSV);
                 CSVWriter cw = new CSVWriter(fileWriter);
                 ArrayList<String[]> coordinates = new ArrayList<String[]>();
+                //height是下边界和上边界之间的距离
                 double height = mDownBJ - mUpBJ;
                 String[] coordinate = new String[2];
                 for (int i = 0; i < count; i++) {
                     String x = String.valueOf(generatedPoints.get(i).x);
                     String y = String.valueOf(height - generatedPoints.get(i).y);
-//                String[] coordinate = new String[]{x, y};
-//                coordinates.add(coordinate);
                     coordinate[0] = x;
                     coordinate[1] = y;
                     cw.writeNext(coordinate);
@@ -694,6 +734,7 @@ public class MainActivity extends AppCompatActivity {
         private Bitmap redrawToolStrip(int width, int height) {
             Bitmap redrawBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
 
+            //paint0画心电图曲线，paint1画网格的细线，paint2画网格的粗线
             Canvas canvas = new Canvas(redrawBitmap);
             Paint paint0 = new Paint();
             paint0.setColor(Color.BLACK);
@@ -710,7 +751,7 @@ public class MainActivity extends AppCompatActivity {
             canvas.drawColor(0xFFF5F5DC);
 
             int index = 0;
-            //画网格
+            //画网格，每5个画一个粗线
             for (float i = 30; i < width - 30; i += 12, index++) {
                 if (index % 5 == 0) {
                     canvas.drawLine(i, 30, i, height - 30, paint2);
@@ -729,6 +770,7 @@ public class MainActivity extends AppCompatActivity {
 
             for (int i = 0; i < generatedPoints.size() - 1; i++) {
                 float x1 = (float) generatedPoints.get(i).x;
+                //所有的y都加40就是向上平移了40个单位而已
                 float y1 = (float) generatedPoints.get(i).y + 40;
                 float x2 = (float) generatedPoints.get(i + 1).x;
                 float y2 = (float) generatedPoints.get(i + 1).y + 40;
