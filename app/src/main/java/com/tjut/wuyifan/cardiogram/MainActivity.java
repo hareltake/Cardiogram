@@ -24,14 +24,7 @@ import android.widget.TextView;
 import com.opencsv.CSVWriter;
 import com.tjut.wuyifan.cardiogram.utils.Utility;
 
-import org.opencv.android.BaseLoaderCallback;
-import org.opencv.android.LoaderCallbackInterface;
-import org.opencv.android.OpenCVLoader;
-import org.opencv.android.Utils;
-import org.opencv.core.Mat;
-import org.opencv.core.Point;
-import org.opencv.core.Size;
-import org.opencv.imgproc.Imgproc;
+import android.graphics.Point;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -45,7 +38,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_TAKE_PHOTO = 1;
     private static final int REQUEST_CUT_PHONTO = 2;
     private static final String TAG = "Cardiogram";
-    private static final String CSV = "/storage/emulated/0/Pictures/pixel.csv";
+    private static final String CSV = "/storage/emulated/0/Pictures/pixel.ECG";
     private static final String IMAG1 = "/storage/emulated/0/Pictures/JPEG_20151028_125903_-188392486.jpg";
     private static final String IMAG2 = "/storage/emulated/0/Pictures/JPEG_20151028_164021_-188392486.jpg";
     //黑白框边界的单位长度
@@ -69,24 +62,6 @@ public class MainActivity extends AppCompatActivity {
     private double mUpRadian;
     private double mDownBJ;
     private double mDownRadian;
-
-
-    //opencv是一个图像处理的库，异步加载opencv
-    private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
-        @Override
-        public void onManagerConnected(int status) {
-            switch (status) {
-                case LoaderCallbackInterface.SUCCESS: {
-                    Log.i(TAG, "OpenCV loaded successfully");
-                }
-                break;
-                default: {
-                    super.onManagerConnected(status);
-                }
-                break;
-            }
-        }
-    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -136,7 +111,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_2_4_11, this, mLoaderCallback);
     }
 
     //调用本地的相机app，开始拍照，所拍照片存在mCurrentPhotoPath路径下
@@ -324,10 +298,10 @@ public class MainActivity extends AppCompatActivity {
                         textView.setText("旋转矫正");
                         break;
                     case 3:
-                        textView.setText("获取下边界");
+                        textView.setText("重新获取下边界");
                         break;
                     case 4:
-                        textView.setText("获取上边界");
+                        textView.setText("重新获取上边界");
                         break;
                     case 5:
                         textView.setText("灰度化");
@@ -361,7 +335,8 @@ public class MainActivity extends AppCompatActivity {
             mDownBJ = afterDownPoints.get(50).y;
 
             /**
-             * 以下代码是从源代码翻译过来的，但是之后完全没用到，所以注释掉了
+             * 以下代码是从源代码翻译过来的，但是之后完全没用到，所以注释掉了，你以后要是
+             * 看懂了就随意处置吧
              */
 //            double a = 0;
 //            double b = 0;
@@ -399,7 +374,7 @@ public class MainActivity extends AppCompatActivity {
             ArrayList<Point> nihePoints = new ArrayList<Point>();
 
             /**
-             * 同样，以下代码也没用到
+             * 同上
              */
 //            double a = 0;
 //            double b = 0;
@@ -434,30 +409,30 @@ public class MainActivity extends AppCompatActivity {
          * @return
          */
         private ArrayList<Point> downBJToolStrip(Bitmap bitmap) {
-            Mat rgbMat = new Mat();
-            Utils.bitmapToMat(bitmap, rgbMat);
-            Size size = rgbMat.size();
+            int width = bitmap.getWidth();
+            int height = bitmap.getHeight();
             //存储下边界的点
             ArrayList<Point> downPoints = new ArrayList();
-            double[] p1, p2, p3;
-            double r1, r2, r3;
-            for (int i = 2; i < size.width - 2; i++) {
-                for (int j = (int) size.height - 150 - 1 - 3; j > 1; j--) {
-                    p1 = rgbMat.get(j, i);
-                    p2 = rgbMat.get(j - 1, i);
-                    p3 = rgbMat.get(j - 2, i);
-                    r1 = p1[0];
-                    r2 = p2[0];
-                    r3 = p3[0];
+            int p1, p2, p3;
+            int r1, r2, r3;
+            for (int i = 2; i < width - 2; i++) {
+                for (int j = height - 150 - 1 - 3; j > 1; j--) {
+                    p1 = bitmap.getPixel(i, j);
+                    p2 = bitmap.getPixel(i, j + 1);
+                    p3 = bitmap.getPixel(i, j + 2);
+                    r1 = Color.red(p1);
+                    r2 = Color.red(p2);
+                    r3 = Color.red(p3);
                     if (r1 < 132 && r2 >= 132 && r3 >= 132) {
                         Point point = new Point(i, j - 1);
                         downPoints.add(point);
                         break;
                     }
                 }
-                publishProgress((int) (i / size.width * 30));
+                publishProgress((int) ((double) i / width * 30));
             }
 
+            //这里是把下边界的第一个点和最后一个点拿出来求斜率，弧度什么的
             int count = downPoints.size();
             double x1 = downPoints.get(0).x;
             double y1 = bitmap.getHeight() - downPoints.get(0).y;
@@ -477,30 +452,30 @@ public class MainActivity extends AppCompatActivity {
          * @return
          */
         private ArrayList<Point> upBJToolStrip(Bitmap bitmap) {
-            Mat rgbMat = new Mat();
-            Utils.bitmapToMat(bitmap, rgbMat);
-            Size size = rgbMat.size();
+            int width = bitmap.getWidth();
+            int height = bitmap.getHeight();
             //存储上边界的点
             ArrayList<Point> upPoints = new ArrayList();
-            double[] p1, p2, p3;
-            double r1, r2, r3;
-            for (int i = 2; i < size.width - 2; i++) {
-                for (int j = 150 + 2; j < size.height - 2; j++) {
-                    p1 = rgbMat.get(j, i);
-                    p2 = rgbMat.get(j + 1, i);
-                    p3 = rgbMat.get(j + 2, i);
-                    r1 = p1[0];
-                    r2 = p2[0];
-                    r3 = p3[0];
+            int p1, p2, p3;
+            int r1, r2, r3;
+            for (int i = 2; i < width - 2; i++) {
+                for (int j = 150 + 2; j < height - 2; j++) {
+                    p1 = bitmap.getPixel(i, j);
+                    p2 = bitmap.getPixel(i, j + 1);
+                    p3 = bitmap.getPixel(i, j + 2);
+                    r1 = Color.red(p1);
+                    r2 = Color.red(p2);
+                    r3 = Color.red(p3);
                     if (r1 < 132 && r2 >= 132 && r3 >= 132) {
                         Point point = new Point(i, j + 1);
                         upPoints.add(point);
                         break;
                     }
                 }
-                publishProgress((int) (30 + i / size.width * 30));
+                publishProgress((int) (30 + (double) i / width * 30));
             }
 
+            //这里是把上边界的第一个点和最后一个点拿出来求斜率，弧度什么的
             int count = upPoints.size();
             double x1 = upPoints.get(0).x;
             double y1 = bitmap.getHeight() - upPoints.get(0).y;
@@ -531,7 +506,8 @@ public class MainActivity extends AppCompatActivity {
         private Bitmap huiduToolStrip(Bitmap bitmap)
         {
             /**
-             * 大体思路就是
+             * 大体思路就是获取周围9个点的颜色值，如果满足..，就设置成黑色，
+             * 如果不满足，就..(因为没用opencv，所以时间比较长)
              */
             int color, color1, color2;
             int r0, r1, r2, r3, r4, r5, r6, r7, r8;
@@ -563,15 +539,6 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
             }
-//            Mat rgbMat = new Mat();
-//            Mat grayMat = new Mat();
-//            Mat binaryMat = new Mat();
-//            Utils.bitmapToMat(bitmap, rgbMat);
-//            Imgproc.cvtColor(rgbMat, grayMat, Imgproc.COLOR_RGB2GRAY);
-//            Imgproc.adaptiveThreshold(grayMat, binaryMat, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY_INV, 5, 2);
-//
-//            Bitmap grayBitmap = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.RGB_565);
-//            Utils.matToBitmap(grayMat, grayBitmap);
 
             publishProgress(65);
 
@@ -682,6 +649,10 @@ public class MainActivity extends AppCompatActivity {
             publishProgress(85);
         }
 
+        /**
+         * 生成心电图坐标，因为已经二值化了，所以只要遍历找到黑色点的坐标就行
+         * @param bitmap
+         */
         private void generateCoordinates(Bitmap bitmap) {
             int oldy = 2;
             int flag = 1;
