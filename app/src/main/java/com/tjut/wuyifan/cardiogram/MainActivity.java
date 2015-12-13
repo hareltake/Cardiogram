@@ -38,9 +38,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_TAKE_PHOTO = 1;
     private static final int REQUEST_CUT_PHONTO = 2;
     private static final String TAG = "Cardiogram";
-    private static final String CSV = "/storage/emulated/0/Pictures/pixel.ECG";
-    private static final String IMAG1 = "/storage/emulated/0/Pictures/JPEG_20151028_125903_-188392486.jpg";
-    private static final String IMAG2 = "/storage/emulated/0/Pictures/JPEG_20151028_164021_-188392486.jpg";
+    private static final String IMAG2 = "/storage/emulated/0/Pictures/JPEG_20151213_173136_1371005025.jpg";
     //黑白框边界的单位长度
     private static final int BORDER = 30;
     //用来显示图片
@@ -162,6 +160,21 @@ public class MainActivity extends AppCompatActivity {
 
         mCurrentPhotoPath = image.getAbsolutePath();
         return image;
+    }
+
+    //根据时间生成ECG文件名
+    private File createECGFile() throws IOException {
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String ECGFilename = "ECG_" + timeStamp + "_";
+        File storageDir = Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_PICTURES);
+        File ECGFile = File.createTempFile(
+                ECGFilename,  /* prefix */
+                ".ECG",         /* suffix */
+                storageDir      /* directory */
+        );
+
+        return ECGFile;
     }
 
 
@@ -681,15 +694,19 @@ public class MainActivity extends AppCompatActivity {
             double time = count * 0.0035;
             //将坐标写入csv文件
             try {
-                FileWriter fileWriter = new FileWriter(CSV);
+                File ECGFile = createECGFile();
+                FileWriter fileWriter = new FileWriter(ECGFile);
                 CSVWriter cw = new CSVWriter(fileWriter);
                 ArrayList<String[]> coordinates = new ArrayList<String[]>();
                 //height是下边界和上边界之间的距离
                 double height = mDownBJ - mUpBJ;
                 String[] coordinate = new String[2];
                 for (int i = 0; i < count; i++) {
-                    String x = String.valueOf(generatedPoints.get(i).x);
-                    String y = String.valueOf(height - generatedPoints.get(i).y);
+                    //可直接将int类型转成二进制字符串
+                    String x = Integer.toBinaryString(generatedPoints.get(i).x);
+                    String y = Integer.toBinaryString((int) height - generatedPoints.get(i).y);
+                    Log.d(TAG, "x: " + x);
+                    Log.d(TAG, "y: " + y);
                     coordinate[0] = x;
                     coordinate[1] = y;
                     cw.writeNext(coordinate);
@@ -703,50 +720,74 @@ public class MainActivity extends AppCompatActivity {
         }
 
         private Bitmap redrawToolStrip(int width, int height) {
-            Bitmap redrawBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
-
-            //paint0画心电图曲线，paint1画网格的细线，paint2画网格的粗线
-            Canvas canvas = new Canvas(redrawBitmap);
+            Bitmap redrawBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888 );
+            //paint0画心电图曲线
             Paint paint0 = new Paint();
             paint0.setColor(Color.BLACK);
             paint0.setStrokeWidth(2);
             paint0.setStyle(Paint.Style.STROKE);
-            Paint paint1 = new Paint();
-            paint1.setColor(0xFFD269E1);
-            paint1.setStrokeWidth(1);
-            paint1.setStyle(Paint.Style.STROKE);
-            Paint paint2 = new Paint();
-            paint2.setColor(0xFFD269E1);
-            paint2.setStrokeWidth(2);
-            paint2.setStyle(Paint.Style.STROKE);
-            canvas.drawColor(0xFFF5F5DC);
 
-            int index = 0;
-            //画网格，每5个画一个粗线
-            for (float i = 30; i < width - 30; i += 12, index++) {
-                if (index % 5 == 0) {
-                    canvas.drawLine(i, 30, i, height - 30, paint2);
-                } else {
-                    canvas.drawLine(i, 30, i, height - 30, paint1);
-                }
+            int marginTop = height/4;
+            Canvas canvas = new Canvas(redrawBitmap);
+
+            Paint paintBigGrid = new Paint();
+            paintBigGrid.setColor(Color.parseColor("#FFDEAD"));   //ÑÕÉ«
+            paintBigGrid.setStrokeWidth((float) 3.0);
+
+            Paint paintSmallGrid = new Paint();
+            paintSmallGrid.setColor(Color.parseColor("#FFDEAD"));   //ÑÕÉ«
+            paintSmallGrid.setStrokeWidth((float) 1.0);
+
+            //绘制心电图，大格子为50*50像素，小格子为10*10像素
+            float startX = 0;
+            float startY = 0;
+            float stopX = 0;
+            float stopY = 0;
+            //绘制大格子横线
+            for(int i = 0; i < 10; i++)
+            {
+                startY = 10 + 50*i+ marginTop;
+                stopY = 10 + 50*i + marginTop;
+                stopX = width;
+                canvas.drawLine(startX, startY, stopX, stopY, paintBigGrid);
             }
-            index = 0;
-            for (int j = 30; j <= height - 30; j += 12, index++) {
-                if (index % 5 == 0) {
-                    canvas.drawLine(30, j, width - 30, j, paint2);
-                } else {
-                    canvas.drawLine(30, j, width - 30, j, paint1);
-                }
+            //绘制小格子横线
+            for(int j = 0; j < 9 * 5; j++)
+            {
+                startY = 10 + 10*j+ marginTop;
+                stopY = 10 + 10*j+ marginTop;
+                stopX = width;
+                canvas.drawLine(startX, startY, stopX, stopY, paintSmallGrid);
+            }
+            //绘制大格子纵线
+            for(int m = 0; m <width/50+1; m++)
+            {
+                startY = 10 + marginTop;
+                stopY = 10 + 50 * 9 + marginTop;
+                startX =  m*50;
+                stopX =   m*50;
+                canvas.drawLine(startX, startY, stopX, stopY, paintBigGrid);
+            }
+
+            for(int n = 0; n <width/10; n++)
+            {
+                startY = 10 + marginTop;
+                stopY = 10 + 50 * 9 + marginTop;
+                startX =  n*10;
+                stopX =   n*10;
+                canvas.drawLine(startX, startY, stopX, stopY, paintSmallGrid);
             }
 
             for (int i = 0; i < generatedPoints.size() - 1; i++) {
                 float x1 = (float) generatedPoints.get(i).x;
                 //所有的y都加40就是向上平移了40个单位而已
-                float y1 = (float) generatedPoints.get(i).y + 40;
+                float y1 = (float) generatedPoints.get(i).y + marginTop;
                 float x2 = (float) generatedPoints.get(i + 1).x;
-                float y2 = (float) generatedPoints.get(i + 1).y + 40;
+                float y2 = (float) generatedPoints.get(i + 1).y + marginTop;
                 canvas.drawLine(x1, y1, x2, y2, paint0);
             }
+
+            canvas.save(Canvas.ALL_SAVE_FLAG);
 
             publishProgress(100);
 
